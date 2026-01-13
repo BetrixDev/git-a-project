@@ -12,5 +12,5 @@ export default defineSchema({
         tags: v.array(v.string()),
       }),
     ),
-  }),
+  }).index('by_userId', ['userId']),
 })
