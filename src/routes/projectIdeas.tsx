@@ -6,33 +6,53 @@ import {
   useUser,
 } from '@clerk/tanstack-react-start'
 import { useAction, useQuery } from 'convex/react'
-import { createFileRoute } from '@tanstack/react-router'
-import { api } from '../../convex/_generated/api'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  SparklesFreeIcons,
-  RefreshFreeIcons,
-  Message01FreeIcons,
-  Loading03FreeIcons,
+  Add01FreeIcons,
   Alert02FreeIcons,
-  Calendar03FreeIcons,
   BubbleChatIcon,
+  Calendar03FreeIcons,
+  Loading03FreeIcons,
+  Message01FreeIcons,
+  RefreshFreeIcons,
+  SparklesFreeIcons,
 } from '@hugeicons/core-free-icons'
+import { api } from '../../convex/_generated/api'
+import type { Id } from '../../convex/_generated/dataModel'
 import {
   Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { SidebarTrigger } from '@/components/ui/sidebar'
+
+type SearchParams = {
+  generationId?: string
+  doNewGeneration?: string
+}
 
 export const Route = createFileRoute('/projectIdeas')({
   component: ProjectIdeasPage,
+  validateSearch: (search: Record<string, unknown>): SearchParams => {
+    return {
+      generationId:
+        typeof search.generationId === 'string'
+          ? search.generationId
+          : undefined,
+      doNewGeneration:
+        typeof search.doNewGeneration === 'string'
+          ? search.doNewGeneration
+          : undefined,
+    }
+  },
 })
 
 function ProjectIdeasPage() {
@@ -68,7 +88,21 @@ function ProjectIdeasPage() {
 
 function ProjectIdeasContent() {
   const { user } = useUser()
-  const projectData = useQuery(api.projects.getUserProjects)
+  const { generationId, doNewGeneration } = Route.useSearch()
+  const navigate = useNavigate()
+
+  // If a specific generationId is provided, fetch that generation
+  const specificGeneration = useQuery(
+    api.projects.getGenerationById,
+    generationId ? { id: generationId as Id<'generations'> } : 'skip',
+  )
+
+  // Also get the latest generation for the current/default view
+  const latestProjectData = useQuery(api.projects.getLatestGeneration)
+
+  // Use specific generation if provided, otherwise use latest
+  const projectData = generationId ? specificGeneration : latestProjectData
+
   const generateProjects = useAction(
     api.initialGeneration.generateInitialProjectIdeas,
   )
@@ -81,19 +115,44 @@ function ProjectIdeasContent() {
   )?.username
 
   const isLoading = projectData === undefined
-  const isGenerating = projectData?.status === 'generating'
+  const isGenerating = latestProjectData?.status === 'generating'
   const hasError = projectData?.status === 'error'
   const isCompleted = projectData?.status === 'completed'
 
   useEffect(() => {
-    if (projectData === null && !hasTriggeredInitial && githubUsername) {
+    // Trigger new generation if requested via search param
+    if (doNewGeneration === 'true' && githubUsername && !isGenerating) {
+      navigate({ to: '/projectIdeas', search: {} })
+      handleGenerate()
+      return
+    }
+
+    // Auto-generate on first visit if no generations exist
+    if (
+      !generationId &&
+      latestProjectData === null &&
+      !hasTriggeredInitial &&
+      githubUsername
+    ) {
       setHasTriggeredInitial(true)
       handleGenerate()
     }
-  }, [projectData, hasTriggeredInitial, githubUsername])
+  }, [
+    latestProjectData,
+    hasTriggeredInitial,
+    githubUsername,
+    generationId,
+    doNewGeneration,
+    isGenerating,
+  ])
 
   const handleGenerate = async () => {
     if (!githubUsername || isGenerating) return
+
+    // Navigate to latest view so user sees the new generation
+    if (generationId) {
+      navigate({ to: '/projectIdeas', search: {} })
+    }
 
     try {
       await generateProjects({
@@ -119,6 +178,7 @@ function ProjectIdeasContent() {
           <div className="max-w-7xl mx-auto px-6 py-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="flex items-center gap-3">
+                <SidebarTrigger className="md:hidden" />
                 <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
                   <HugeiconsIcon
                     icon={SparklesFreeIcons}
@@ -135,17 +195,17 @@ function ProjectIdeasContent() {
                 </div>
               </div>
 
-              <div className="flex-1 flex items-center gap-3 w-full sm:w-auto sm:justify-end">
-                <div className="flex-1 sm:flex-none sm:w-64">
+              <div className="flex-1 flex items-center gap-2 w-full sm:w-auto sm:justify-end">
+                <div className="flex-1 sm:flex-none sm:w-72 relative">
                   <Input
-                    placeholder="Guide new generations..."
+                    placeholder="e.g. 'focus on CLI tools' or 'use Rust'"
                     value={guidance}
                     onChange={(e) => setGuidance(e.target.value)}
-                    className="h-9 bg-input/30"
+                    className="h-9 bg-input/30 pr-2"
                   />
                 </div>
                 <Button
-                  size="xl"
+                  size="lg"
                   onClick={handleGenerate}
                   disabled={isGenerating || !githubUsername}
                   className="shrink-0"
@@ -156,10 +216,10 @@ function ProjectIdeasContent() {
                       className="size-4 animate-spin"
                     />
                   ) : (
-                    <HugeiconsIcon icon={RefreshFreeIcons} className="size-4" />
+                    <HugeiconsIcon icon={Add01FreeIcons} className="size-4" />
                   )}
                   <span className="hidden sm:inline">
-                    {isGenerating ? 'Generating...' : 'Regenerate'}
+                    {isGenerating ? 'Generating...' : 'New Generation'}
                   </span>
                 </Button>
               </div>
@@ -307,7 +367,7 @@ interface Project {
   id: string
   name: string
   description: string
-  tags: string[]
+  tags: Array<string>
 }
 
 function ProjectCard({ project, index }: { project: Project; index: number }) {

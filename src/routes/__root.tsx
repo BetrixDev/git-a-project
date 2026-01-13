@@ -1,13 +1,15 @@
-import { HeadContent, Scripts, useRouteContext } from '@tanstack/react-router'
+import { HeadContent, Scripts, createRootRouteWithContext, useRouteContext  } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { QueryClient } from '@tanstack/react-query'
-import { createRootRouteWithContext } from '@tanstack/react-router'
-import appCss from '../styles.css?url'
-import { ConvexReactClient } from 'convex/react'
-import { ConvexQueryClient } from '@convex-dev/react-query'
 import { ClerkProvider, useAuth } from '@clerk/tanstack-react-start'
 import { ConvexProviderWithClerk } from 'convex/react-clerk'
+import { shadcn } from '@clerk/themes'
+import appCss from '../styles.css?url'
+import type { QueryClient } from '@tanstack/react-query'
+import type { ConvexReactClient } from 'convex/react'
+import type { ConvexQueryClient } from '@convex-dev/react-query'
+import { AppSidebar } from '@/components/app-sidebar'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
@@ -46,14 +48,21 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const context = useRouteContext({ from: Route.id })
 
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        theme: shadcn,
+      }}
+    >
       <ConvexProviderWithClerk client={context.convexClient} useAuth={useAuth}>
         <html lang="en">
           <head>
             <HeadContent />
           </head>
           <body className="dark">
-            {children}
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>{children}</SidebarInset>
+            </SidebarProvider>
             <TanStackDevtools
               config={{
                 position: 'bottom-right',

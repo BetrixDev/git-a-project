@@ -1,0 +1,258 @@
+import { useQuery } from 'convex/react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
+import {
+  SignedIn,
+  SignedOut,
+  UserButton,
+  useUser,
+} from '@clerk/tanstack-react-start'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Clock01FreeIcons,
+  Home01FreeIcons,
+  Loading03FreeIcons,
+  Message01FreeIcons,
+  SparklesFreeIcons,
+} from '@hugeicons/core-free-icons'
+import { api } from '../../convex/_generated/api'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSkeleton,
+  SidebarSeparator,
+} from '@/components/ui/sidebar'
+
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+
+  if (minutes < 1) return 'Just now'
+  if (minutes < 60) return `${minutes}m ago`
+  if (hours < 24) return `${hours}h ago`
+  if (days < 7) return `${days}d ago`
+  return new Date(timestamp).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function GenerationHistorySkeleton() {
+  return (
+    <SidebarMenu>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <SidebarMenuItem key={index}>
+          <SidebarMenuSkeleton showIcon />
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  )
+}
+
+function GenerationHistoryList() {
+  const navigate = useNavigate()
+  const history = useQuery(api.projects.getGenerationHistory)
+
+  // Try to get the current generation ID from search params
+  let currentGenerationId: string | undefined
+  try {
+    const search = useSearch({ strict: false })
+    currentGenerationId = search?.generationId
+  } catch {
+    // Not on a route with search params
+  }
+
+  if (history === undefined) {
+    return <GenerationHistorySkeleton />
+  }
+
+  if (history.length === 0) {
+    return (
+      <div className="px-2 py-4 text-center">
+        <p className="text-xs text-muted-foreground">
+          No generations yet. Generate your first project ideas!
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <SidebarMenu>
+      {history.map((generation) => {
+        const isActive = currentGenerationId === generation._id
+        const displayTime = generation.generatedAt || generation._creationTime
+        const isGenerating = generation.status === 'generating'
+
+        return (
+          <SidebarMenuItem key={generation._id}>
+            <SidebarMenuButton
+              isActive={isActive}
+              onClick={() => {
+                navigate({
+                  to: '/projectIdeas',
+                  search: { generationId: generation._id },
+                })
+              }}
+              tooltip={
+                generation.guidance ||
+                `${generation.projectCount} project ideas`
+              }
+            >
+              {isGenerating ? (
+                <HugeiconsIcon
+                  icon={Loading03FreeIcons}
+                  className="size-4 animate-spin"
+                />
+              ) : (
+                <HugeiconsIcon icon={SparklesFreeIcons} className="size-4" />
+              )}
+              <div className="flex flex-col gap-0.5 overflow-hidden">
+                <span className="truncate">
+                  {generation.guidance
+                    ? generation.guidance.slice(0, 30) +
+                      (generation.guidance.length > 30 ? '...' : '')
+                    : `${generation.projectCount} ideas`}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatRelativeTime(displayTime)}
+                </span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )
+      })}
+    </SidebarMenu>
+  )
+}
+
+export function AppSidebar() {
+  const navigate = useNavigate()
+  const user = useUser()
+
+  return (
+    <Sidebar variant="inset" collapsible="icon">
+      <SidebarHeader>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              size="lg"
+              onClick={() => navigate({ to: '/' })}
+              tooltip="Git Project"
+            >
+              <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <HugeiconsIcon icon={SparklesFreeIcons} className="size-4" />
+              </div>
+              <div className="flex flex-col gap-0.5 leading-none">
+                <span className="font-semibold">Git Project</span>
+                <span className="text-[10px] text-muted-foreground">
+                  AI Project Ideas
+                </span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+
+      <SidebarSeparator />
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() => navigate({ to: '/' })}
+                tooltip="Home"
+              >
+                <HugeiconsIcon icon={Home01FreeIcons} className="size-4" />
+                <span>Home</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                onClick={() =>
+                  navigate({
+                    to: '/projectIdeas',
+                    search: { doNewGeneration: 'true' },
+                  })
+                }
+                tooltip="New Generation"
+              >
+                <HugeiconsIcon icon={SparklesFreeIcons} className="size-4" />
+                <span>New Generation</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            <HugeiconsIcon icon={Clock01FreeIcons} className="size-4 mr-2" />
+            History
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SignedIn>
+              <GenerationHistoryList />
+            </SignedIn>
+            <SignedOut>
+              <div className="px-2 py-4 text-center">
+                <p className="text-xs text-muted-foreground">
+                  Sign in to view your history
+                </p>
+              </div>
+            </SignedOut>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            <HugeiconsIcon icon={Message01FreeIcons} className="size-4 mr-2" />
+            Chats
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <div className="px-2 py-4 text-center">
+              <p className="text-xs text-muted-foreground">
+                Chat feature coming soon
+              </p>
+            </div>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+
+      <SidebarFooter>
+        <SignedIn>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <UserButton
+                  appearance={{
+                    elements: {
+                      avatarBox: 'size-8',
+                    },
+                  }}
+                />
+                <span className="text-xs truncate group-data-[collapsible=icon]:hidden">
+                  {user.user?.username ||
+                    user.user?.emailAddresses[0].emailAddress}
+                </span>
+              </div>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SignedIn>
+      </SidebarFooter>
+    </Sidebar>
+  )
+}

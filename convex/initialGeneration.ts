@@ -1,17 +1,16 @@
 'use node'
 
 import { v } from 'convex/values'
+import { Output, ToolLoopAgent, tool } from 'ai'
+import { z } from 'zod'
 import { action } from './_generated/server'
 import { internal } from './_generated/api'
-import { ToolLoopAgent, tool, Output } from 'ai'
-import { openai } from '@ai-sdk/openai'
-import { z } from 'zod'
 
 interface GitHubRepo {
   name: string
   description: string | null
   language: string | null
-  topics: string[]
+  topics: Array<string>
   stargazers_count: number
   fork: boolean
 }
@@ -20,7 +19,7 @@ interface RepoSummary {
   name: string
   description: string | null
   language: string | null
-  topics: string[]
+  topics: Array<string>
   stars: number
   isFork: boolean
 }
@@ -117,11 +116,14 @@ export const generateInitialProjectIdeas = action({
     const { githubUsername, guidance } = args
     const userId = identity.subject
 
-    // Set status to generating
-    await ctx.runMutation(internal.projects.startGeneration, {
-      userId,
-      guidance: guidance || undefined,
-    })
+    // Set status to generating and get the generation ID
+    const generationId = await ctx.runMutation(
+      internal.projects.startGeneration,
+      {
+        userId,
+        guidance: guidance || undefined,
+      },
+    )
 
     try {
       const agent = new ToolLoopAgent({
@@ -134,7 +136,7 @@ First, use the getGitHubRepos tool to explore the user's repositories. You can p
 - Domains they're interested in (AI, gaming, productivity, etc.)
 - Their skill level based on project complexity
 
-After gathering enough information, generate 5 diverse project ideas that:
+After gathering enough information, generate 6 diverse project ideas that:
 - Build on their existing skills while introducing new challenges
 - Are unique and creative, not generic tutorial projects
 - Have practical value or would be genuinely fun to build
@@ -182,21 +184,21 @@ After gathering enough information, generate 5 diverse project ideas that:
 
       if (!result.output) {
         await ctx.runMutation(internal.projects.setGenerationError, {
-          userId,
+          generationId,
           error: 'AI did not generate project ideas. Please try again.',
         })
         return null
       }
 
       await ctx.runMutation(internal.projects.storeProjectIdeas, {
-        userId,
+        generationId,
         projects: result.output.projects,
       })
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : 'An unexpected error occurred'
       await ctx.runMutation(internal.projects.setGenerationError, {
-        userId,
+        generationId,
         error: errorMessage,
       })
     }

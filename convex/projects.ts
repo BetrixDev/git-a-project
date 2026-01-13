@@ -1,119 +1,77 @@
 import { v } from 'convex/values'
 import { internalMutation, query } from './_generated/server'
-import { generationStatusValidator } from './schema'
+import { generationStatusValidator, projectValidator } from './schema'
 
-export const projectIdeaValidator = v.object({
-  id: v.string(),
-  name: v.string(),
-  description: v.string(),
-  tags: v.array(v.string()),
-})
+export { projectValidator }
 
 export const startGeneration = internalMutation({
   args: {
     userId: v.string(),
     guidance: v.optional(v.string()),
   },
-  returns: v.null(),
+  returns: v.id('generations'),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query('initialProjectGenerations')
-      .withIndex('by_userId', (q) => q.eq('userId', args.userId))
-      .unique()
+    const generationId = await ctx.db.insert('generations', {
+      userId: args.userId,
+      status: 'generating',
+      projects: [],
+      guidance: args.guidance || undefined,
+    })
 
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        status: 'generating',
-        error: undefined,
-        guidance: args.guidance || undefined,
-      })
-    } else {
-      await ctx.db.insert('initialProjectGenerations', {
-        userId: args.userId,
-        status: 'generating',
-        projects: [],
-        guidance: args.guidance || undefined,
-      })
-    }
-    return null
+    return generationId
   },
 })
 
 export const storeProjectIdeas = internalMutation({
   args: {
-    userId: v.string(),
-    projects: v.array(projectIdeaValidator),
+    generationId: v.id('generations'),
+    projects: v.array(projectValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query('initialProjectGenerations')
-      .withIndex('by_userId', (q) => q.eq('userId', args.userId))
-      .unique()
-
     const now = Date.now()
 
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        projects: args.projects,
-        status: 'completed',
-        error: undefined,
-        generatedAt: now,
-      })
-    } else {
-      await ctx.db.insert('initialProjectGenerations', {
-        userId: args.userId,
-        projects: args.projects,
-        status: 'completed',
-        generatedAt: now,
-      })
-    }
+    await ctx.db.patch(args.generationId, {
+      projects: args.projects,
+      status: 'completed',
+      error: undefined,
+      generatedAt: now,
+    })
+
     return null
   },
 })
 
 export const setGenerationError = internalMutation({
   args: {
-    userId: v.string(),
+    generationId: v.id('generations'),
     error: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query('initialProjectGenerations')
-      .withIndex('by_userId', (q) => q.eq('userId', args.userId))
-      .unique()
+    await ctx.db.patch(args.generationId, {
+      status: 'error',
+      error: args.error,
+    })
 
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        status: 'error',
-        error: args.error,
-      })
-    } else {
-      await ctx.db.insert('initialProjectGenerations', {
-        userId: args.userId,
-        status: 'error',
-        error: args.error,
-        projects: [],
-      })
-    }
     return null
   },
 })
 
-export const getUserProjects = query({
+// Get the latest generation for the current user
+export const getLatestGeneration = query({
   args: {},
   returns: v.union(
     v.null(),
     v.object({
-      _id: v.id('initialProjectGenerations'),
+      _id: v.id('generations'),
       _creationTime: v.number(),
       userId: v.string(),
       status: generationStatusValidator,
       error: v.optional(v.string()),
       generatedAt: v.optional(v.number()),
       guidance: v.optional(v.string()),
-      projects: v.array(projectIdeaValidator),
+      projects: v.array(projectValidator),
     }),
   ),
   handler: async (ctx) => {
@@ -123,9 +81,77 @@ export const getUserProjects = query({
     }
 
     const generation = await ctx.db
-      .query('initialProjectGenerations')
+      .query('generations')
       .withIndex('by_userId', (q) => q.eq('userId', identity.subject))
-      .unique()
+      .order('desc')
+      .first()
+
+    return generation
+  },
+})
+
+// Get generation history for sidebar
+export const getGenerationHistory = query({
+  args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id('generations'),
+      _creationTime: v.number(),
+      status: generationStatusValidator,
+      generatedAt: v.optional(v.number()),
+      guidance: v.optional(v.string()),
+      projectCount: v.number(),
+    }),
+  ),
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
+
+    const generations = await ctx.db
+      .query('generations')
+      .withIndex('by_userId', (q) => q.eq('userId', identity.subject))
+      .order('desc')
+      .take(50)
+
+    return generations.map((gen) => ({
+      _id: gen._id,
+      _creationTime: gen._creationTime,
+      status: gen.status,
+      generatedAt: gen.generatedAt,
+      guidance: gen.guidance,
+      projectCount: gen.projects.length,
+    }))
+  },
+})
+
+// Get a specific generation by ID
+export const getGenerationById = query({
+  args: { id: v.id('generations') },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id('generations'),
+      _creationTime: v.number(),
+      userId: v.string(),
+      status: generationStatusValidator,
+      error: v.optional(v.string()),
+      generatedAt: v.optional(v.number()),
+      guidance: v.optional(v.string()),
+      projects: v.array(projectValidator),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return null
+    }
+
+    const generation = await ctx.db.get(args.id)
+    if (!generation || generation.userId !== identity.subject) {
+      return null
+    }
 
     return generation
   },

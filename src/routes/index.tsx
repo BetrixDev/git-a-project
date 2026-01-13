@@ -1,19 +1,20 @@
 import {
+  SignInButton,
   SignedIn,
   SignedOut,
-  SignInButton,
   useAuth,
 } from '@clerk/tanstack-react-start'
 import {
-  GithubFreeIcons,
-  SparklesFreeIcons,
-  GitBranchFreeIcons,
   CodeFreeIcons,
-  Rocket01FreeIcons,
+  GitBranchFreeIcons,
+  GithubFreeIcons,
   Loading03FreeIcons,
+  Rocket01FreeIcons,
+  SparklesFreeIcons,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 
 export const Route = createFileRoute('/')({ component: App })
 
@@ -23,6 +24,11 @@ function App() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
+      {/* Mobile sidebar trigger */}
+      <div className="absolute top-4 left-4 z-20 md:hidden">
+        <SidebarTrigger />
+      </div>
+
       <div className="absolute inset-0 overflow-hidden">
         <div className="landing-grid absolute inset-0" />
         <div className="landing-orb landing-orb-1" />
