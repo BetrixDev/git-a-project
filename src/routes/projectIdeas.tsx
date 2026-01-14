@@ -36,6 +36,14 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { BranchDrawer } from '@/components/branch-drawer'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 type SearchParams = {
   generationId?: string
@@ -117,6 +125,10 @@ function ProjectIdeasContent() {
   const [branchDrawerOpen, setBranchDrawerOpen] = useState(false)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
 
+  // Project detail dialog state
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [detailProject, setDetailProject] = useState<Project | null>(null)
+
   const githubUsername = user?.externalAccounts?.find(
     (acc) => acc.provider === 'github',
   )?.username
@@ -133,6 +145,24 @@ function ProjectIdeasContent() {
   const handleBranchFromProject = (project: Project) => {
     setSelectedProject(project)
     setBranchDrawerOpen(true)
+  }
+
+  const handleProjectClick = (project: Project) => {
+    setDetailProject(project)
+    setDetailDialogOpen(true)
+  }
+
+  const handleBranchFromDialog = () => {
+    if (detailProject) {
+      setDetailDialogOpen(false)
+      setSelectedProject(detailProject)
+      setBranchDrawerOpen(true)
+    }
+  }
+
+  const handleChatFromDialog = () => {
+    // TODO: Implement chat navigation
+    console.log('Chat with project:', detailProject?.name)
   }
 
   useEffect(() => {
@@ -319,6 +349,7 @@ function ProjectIdeasContent() {
                     project={project}
                     index={index}
                     onBranch={handleBranchFromProject}
+                    onClick={handleProjectClick}
                   />
                 ))}
               </div>
@@ -346,6 +377,42 @@ function ProjectIdeasContent() {
         project={selectedProject}
         generationId={currentGenerationId}
       />
+
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold">
+              {detailProject?.name}
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed pt-2">
+              {detailProject?.description}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-wrap gap-1.5 py-2">
+            {detailProject?.tags.map((tag) => (
+              <Badge key={tag} variant="outline" className="text-xs">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 gap-2 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+              onClick={handleBranchFromDialog}
+            >
+              <HugeiconsIcon icon={GitBranchIcon} className="size-4" />
+              Branch
+            </Button>
+            <Button className="flex-1 gap-2" onClick={handleChatFromDialog}>
+              <HugeiconsIcon icon={Message01FreeIcons} className="size-4" />
+              Chat
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -436,15 +503,18 @@ function ProjectCard({
   project,
   index,
   onBranch,
+  onClick,
 }: {
   project: Project
   index: number
   onBranch: (project: Project) => void
+  onClick: (project: Project) => void
 }) {
   return (
     <Card
-      className="project-card group hover:border-primary/30 transition-all duration-300"
+      className="project-card group hover:border-primary/30 transition-all duration-300 cursor-pointer"
       style={{ animationDelay: `${index * 100}ms` }}
+      onClick={() => onClick(project)}
     >
       <CardHeader>
         <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors">
@@ -468,12 +538,20 @@ function ProjectCard({
           variant="outline"
           size="sm"
           className="flex-1 gap-2 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
-          onClick={() => onBranch(project)}
+          onClick={(e) => {
+            e.stopPropagation()
+            onBranch(project)
+          }}
         >
           <HugeiconsIcon icon={GitBranchIcon} className="size-3.5" />
           Branch
         </Button>
-        <Button variant="ghost" size="sm" className="flex-1 gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="flex-1 gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
           <HugeiconsIcon icon={Message01FreeIcons} className="size-3.5" />
           Chat
         </Button>

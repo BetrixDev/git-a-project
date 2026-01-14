@@ -1,5 +1,5 @@
 import { useQuery } from 'convex/react'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useSearch } from '@tanstack/react-router'
 import {
   SignedIn,
   SignedOut,
@@ -64,7 +64,6 @@ function GenerationHistorySkeleton() {
 }
 
 function GenerationHistoryList() {
-  const navigate = useNavigate()
   const history = useQuery(api.projects.getGenerationHistory)
 
   // Try to get the current generation ID from search params
@@ -102,6 +101,79 @@ function GenerationHistoryList() {
     }
   })
 
+  // Recursive component to render branches at any depth
+  function BranchSubMenu({
+    branches,
+    depth = 1,
+  }: {
+    branches: NonNullable<typeof history>
+    depth?: number
+  }) {
+    return (
+      <SidebarMenuSub>
+        {branches.map((branch) => {
+          const isBranchActive = currentGenerationId === branch._id
+          const branchDisplayTime = branch.generatedAt || branch._creationTime
+          const isBranchGenerating = branch.status === 'generating'
+          const childBranches = branchMap.get(branch._id) || []
+          const hasChildBranches = childBranches.length > 0
+
+          return (
+            <SidebarMenuSubItem key={branch._id}>
+              <SidebarMenuSubButton
+                isActive={isBranchActive}
+                render={
+                  <Link
+                    to="/projectIdeas"
+                    search={{ generationId: branch._id }}
+                  />
+                }
+              >
+                <div className="flex items-center gap-1.5 overflow-hidden flex-1">
+                  {isBranchGenerating ? (
+                    <HugeiconsIcon
+                      icon={Loading03FreeIcons}
+                      className="size-3 animate-spin text-primary shrink-0"
+                    />
+                  ) : (
+                    <HugeiconsIcon
+                      icon={GitBranchIcon}
+                      className="size-3 text-primary shrink-0"
+                    />
+                  )}
+                  <div className="flex flex-col gap-0 overflow-hidden flex-1">
+                    <span className="truncate text-[11px]">
+                      {branch.parentProjectName
+                        ? branch.parentProjectName.slice(0, 20) +
+                          (branch.parentProjectName.length > 20 ? '...' : '')
+                        : branch.guidance
+                          ? branch.guidance.slice(0, 20) +
+                            (branch.guidance.length > 20 ? '...' : '')
+                          : `${branch.projectCount} ideas`}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground">
+                      {formatRelativeTime(branchDisplayTime)}
+                    </span>
+                  </div>
+                  {hasChildBranches && (
+                    <span className="text-[9px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-full shrink-0">
+                      {childBranches.length}
+                    </span>
+                  )}
+                </div>
+              </SidebarMenuSubButton>
+
+              {/* Recursively render child branches */}
+              {hasChildBranches && (
+                <BranchSubMenu branches={childBranches} depth={depth + 1} />
+              )}
+            </SidebarMenuSubItem>
+          )
+        })}
+      </SidebarMenuSub>
+    )
+  }
+
   return (
     <SidebarMenu>
       {rootGenerations.map((generation) => {
@@ -115,12 +187,12 @@ function GenerationHistoryList() {
           <SidebarMenuItem key={generation._id}>
             <SidebarMenuButton
               isActive={isActive}
-              onClick={() => {
-                navigate({
-                  to: '/projectIdeas',
-                  search: { generationId: generation._id },
-                })
-              }}
+              render={
+                <Link
+                  to="/projectIdeas"
+                  search={{ generationId: generation._id }}
+                />
+              }
               tooltip={
                 generation.guidance ||
                 `${generation.projectCount} project ideas`
@@ -152,61 +224,8 @@ function GenerationHistoryList() {
               )}
             </SidebarMenuButton>
 
-            {/* Branch items */}
-            {hasBranches && (
-              <SidebarMenuSub>
-                {branches.map((branch) => {
-                  const isBranchActive = currentGenerationId === branch._id
-                  const branchDisplayTime =
-                    branch.generatedAt || branch._creationTime
-                  const isBranchGenerating = branch.status === 'generating'
-
-                  return (
-                    <SidebarMenuSubItem key={branch._id}>
-                      <SidebarMenuSubButton
-                        isActive={isBranchActive}
-                        onClick={() => {
-                          navigate({
-                            to: '/projectIdeas',
-                            search: { generationId: branch._id },
-                          })
-                        }}
-                      >
-                        <div className="flex items-center gap-1.5 overflow-hidden">
-                          {isBranchGenerating ? (
-                            <HugeiconsIcon
-                              icon={Loading03FreeIcons}
-                              className="size-3 animate-spin text-primary shrink-0"
-                            />
-                          ) : (
-                            <HugeiconsIcon
-                              icon={GitBranchIcon}
-                              className="size-3 text-primary shrink-0"
-                            />
-                          )}
-                          <div className="flex flex-col gap-0 overflow-hidden">
-                            <span className="truncate text-[11px]">
-                              {branch.parentProjectName
-                                ? branch.parentProjectName.slice(0, 20) +
-                                  (branch.parentProjectName.length > 20
-                                    ? '...'
-                                    : '')
-                                : branch.guidance
-                                  ? branch.guidance.slice(0, 20) +
-                                    (branch.guidance.length > 20 ? '...' : '')
-                                  : `${branch.projectCount} ideas`}
-                            </span>
-                            <span className="text-[9px] text-muted-foreground">
-                              {formatRelativeTime(branchDisplayTime)}
-                            </span>
-                          </div>
-                        </div>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  )
-                })}
-              </SidebarMenuSub>
-            )}
+            {/* Branch items - now recursive */}
+            {hasBranches && <BranchSubMenu branches={branches} />}
           </SidebarMenuItem>
         )
       })}
@@ -215,7 +234,6 @@ function GenerationHistoryList() {
 }
 
 export function AppSidebar() {
-  const navigate = useNavigate()
   const user = useUser()
 
   return (
@@ -225,7 +243,7 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
-              onClick={() => navigate({ to: '/' })}
+              render={<Link to="/" />}
               tooltip="Git Project"
             >
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -248,21 +266,18 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton
-                onClick={() => navigate({ to: '/' })}
-                tooltip="Home"
-              >
+              <SidebarMenuButton render={<Link to="/" />} tooltip="Home">
                 <HugeiconsIcon icon={Home01FreeIcons} className="size-4" />
                 <span>Home</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
-                onClick={() =>
-                  navigate({
-                    to: '/projectIdeas',
-                    search: { doNewGeneration: 'true' },
-                  })
+                render={
+                  <Link
+                    to="/projectIdeas"
+                    search={{ doNewGeneration: 'true' }}
+                  />
                 }
                 tooltip="New Generation"
               >
