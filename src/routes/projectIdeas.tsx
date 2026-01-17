@@ -3,11 +3,11 @@ import {
   SignedIn,
   SignedOut,
   useAuth,
-} from '@clerk/tanstack-react-start'
-import { useQuery } from 'convex/react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
-import { HugeiconsIcon } from '@hugeicons/react'
+} from "@clerk/tanstack-react-start";
+import { useQuery } from "convex/react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Add01FreeIcons,
   Alert02FreeIcons,
@@ -19,9 +19,10 @@ import {
   Message01FreeIcons,
   RefreshFreeIcons,
   SparklesFreeIcons,
-} from '@hugeicons/core-free-icons'
-import { api } from '../../convex/_generated/api'
-import type { Id } from '../../convex/_generated/dataModel'
+  Tick02FreeIcons,
+} from "@hugeicons/core-free-icons";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import {
   Card,
   CardContent,
@@ -29,12 +30,12 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { SidebarTrigger } from '@/components/ui/sidebar'
-import { BranchDrawer } from '@/components/branch-drawer'
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { BranchDrawer } from "@/components/branch-drawer";
 import {
   Dialog,
   DialogContent,
@@ -42,27 +43,27 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog'
-import { useGenerateProjects } from '@/hooks/use-generate-projects'
+} from "@/components/ui/dialog";
+import { useGenerateProjects } from "@/hooks/use-generate-projects";
 
 type SearchParams = {
-  generationId?: string
-}
+  generationId?: string;
+};
 
-export const Route = createFileRoute('/projectIdeas')({
+export const Route = createFileRoute("/projectIdeas")({
   component: ProjectIdeasPage,
   validateSearch: (search: Record<string, unknown>): SearchParams => {
     return {
       generationId:
-        typeof search.generationId === 'string'
+        typeof search.generationId === "string"
           ? search.generationId
           : undefined,
-    }
+    };
   },
-})
+});
 
 function ProjectIdeasPage() {
-  const { isLoaded } = useAuth()
+  const { isLoaded } = useAuth();
 
   if (!isLoaded) {
     return (
@@ -77,7 +78,7 @@ function ProjectIdeasPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -89,71 +90,83 @@ function ProjectIdeasPage() {
         <ProjectIdeasContent />
       </SignedIn>
     </>
-  )
+  );
 }
 
 function ProjectIdeasContent() {
-  const { generationId } = Route.useSearch()
-  const { generateProjects, isGenerating, canGenerate } = useGenerateProjects()
+  const { generationId } = Route.useSearch();
+  const {
+    generateProjects,
+    retryGeneration,
+    isGenerating,
+    isRetrying,
+    canGenerate,
+  } = useGenerateProjects();
 
   // If a specific generationId is provided, fetch that generation
   const specificGeneration = useQuery(
     api.projects.getGenerationById,
-    generationId ? { id: generationId as Id<'generations'> } : 'skip',
-  )
+    generationId ? { id: generationId as Id<"generations"> } : "skip",
+  );
 
   // Also get the latest generation for the current/default view
-  const latestProjectData = useQuery(api.projects.getLatestGeneration)
+  const latestProjectData = useQuery(api.projects.getLatestGeneration);
 
   // Use specific generation if provided, otherwise use latest
-  const projectData = generationId ? specificGeneration : latestProjectData
+  const projectData = generationId ? specificGeneration : latestProjectData;
 
-  const [guidance, setGuidance] = useState('')
+  const [guidance, setGuidance] = useState("");
 
   // Branch drawer state
-  const [branchDrawerOpen, setBranchDrawerOpen] = useState(false)
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [branchDrawerOpen, setBranchDrawerOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   // Project detail dialog state
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
-  const [detailProject, setDetailProject] = useState<Project | null>(null)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [detailProject, setDetailProject] = useState<Project | null>(null);
 
-  const isLoading = projectData === undefined
-  const currentIsGenerating = projectData?.status === 'generating'
-  const hasError = projectData?.status === 'error'
-  const isCompleted = projectData?.status === 'completed'
+  const isLoading = projectData === undefined;
+  const currentIsGenerating = projectData?.status === "generating";
+  const hasError = projectData?.status === "error";
+  const isCompleted = projectData?.status === "completed";
 
   // Get the current generation ID for branching
   const currentGenerationId = (projectData?._id ??
-    null) as Id<'generations'> | null
+    null) as Id<"generations"> | null;
 
   const handleBranchFromProject = (project: Project) => {
-    setSelectedProject(project)
-    setBranchDrawerOpen(true)
-  }
+    setSelectedProject(project);
+    setBranchDrawerOpen(true);
+  };
 
   const handleProjectClick = (project: Project) => {
-    setDetailProject(project)
-    setDetailDialogOpen(true)
-  }
+    setDetailProject(project);
+    setDetailDialogOpen(true);
+  };
 
   const handleBranchFromDialog = () => {
     if (detailProject) {
-      setDetailDialogOpen(false)
-      setSelectedProject(detailProject)
-      setBranchDrawerOpen(true)
+      setDetailDialogOpen(false);
+      setSelectedProject(detailProject);
+      setBranchDrawerOpen(true);
     }
-  }
+  };
 
   const handleChatFromDialog = () => {
     // TODO: Implement chat navigation
-    console.log('Chat with project:', detailProject?.name)
-  }
+    console.log("Chat with project:", detailProject?.name);
+  };
 
   const handleGenerate = () => {
-    generateProjects({ guidance: guidance.trim() || undefined })
-    setGuidance('')
-  }
+    generateProjects({ guidance: guidance.trim() || undefined });
+    setGuidance("");
+  };
+
+  const handleRetry = () => {
+    if (currentGenerationId) {
+      retryGeneration(currentGenerationId);
+    }
+  };
 
   return (
     <div className="relative min-h-screen bg-background">
@@ -209,7 +222,7 @@ function ProjectIdeasContent() {
                     <HugeiconsIcon icon={Add01FreeIcons} className="size-4" />
                   )}
                   <span className="hidden sm:inline">
-                    {isGenerating ? 'Generating...' : 'New Generation'}
+                    {isGenerating ? "Generating..." : "New Generation"}
                   </span>
                 </Button>
               </div>
@@ -247,37 +260,19 @@ function ProjectIdeasContent() {
                 </p>
                 <p className="text-sm text-muted-foreground mb-4">
                   {projectData?.error ||
-                    'An unexpected error occurred while generating project ideas.'}
+                    "An unexpected error occurred while generating project ideas."}
                 </p>
                 <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !canGenerate}
+                  onClick={handleRetry}
+                  disabled={isRetrying || !canGenerate}
                 >
                   <HugeiconsIcon icon={RefreshFreeIcons} className="size-4" />
-                  Try Again
+                  {isRetrying ? "Retrying..." : "Try Again"}
                 </Button>
               </div>
             </div>
           ) : currentIsGenerating ? (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-              <div className="relative">
-                <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
-                <div className="relative p-4 rounded-full bg-primary/10 border border-primary/20">
-                  <HugeiconsIcon
-                    icon={SparklesFreeIcons}
-                    className="size-8 text-primary animate-pulse"
-                  />
-                </div>
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-medium text-foreground mb-1">
-                  Analyzing your GitHub profile
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Generating personalized project ideas just for you...
-                </p>
-              </div>
-            </div>
+            <GeneratingStatus currentStep={projectData?.currentStep} />
           ) : isCompleted && projectData?.projects?.length ? (
             <div className="space-y-6">
               <GenerationInfo
@@ -358,17 +353,115 @@ function ProjectIdeasContent() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
 
 function formatDate(timestamp: number): string {
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(timestamp))
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+type GenerationStep =
+  | "fetching_github"
+  | "generating_ideas"
+  | "generating_display_name";
+
+function GeneratingStatus({ currentStep }: { currentStep?: GenerationStep }) {
+  const steps = [
+    {
+      key: "fetching_github" as const,
+      label: "Fetching GitHub details",
+      description: "Analyzing your repositories and starred projects",
+    },
+    {
+      key: "generating_ideas" as const,
+      label: "Generating project ideas",
+      description: "Creating personalized ideas based on your profile",
+    },
+  ];
+
+  const currentStepIndex = steps.findIndex((s) => s.key === currentStep);
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6">
+      <div className="relative">
+        <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
+        <div className="relative p-4 rounded-full bg-primary/10 border border-primary/20">
+          <HugeiconsIcon
+            icon={SparklesFreeIcons}
+            className="size-8 text-primary animate-pulse"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 w-full max-w-xs">
+        {steps.map((step, index) => {
+          const isActive = step.key === currentStep;
+          const isCompleted = currentStepIndex > index;
+
+          return (
+            <div
+              key={step.key}
+              className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-300 ${
+                isActive
+                  ? "border-primary/30 bg-primary/5"
+                  : isCompleted
+                    ? "border-border/50 bg-muted/30"
+                    : "border-border/30 bg-transparent opacity-50"
+              }`}
+            >
+              <div
+                className={`flex items-center justify-center size-6 rounded-full transition-all duration-300 ${
+                  isActive
+                    ? "bg-primary/20"
+                    : isCompleted
+                      ? "bg-green-500/20"
+                      : "bg-muted/50"
+                }`}
+              >
+                {isActive ? (
+                  <HugeiconsIcon
+                    icon={Loading03FreeIcons}
+                    className="size-3.5 text-primary animate-spin"
+                  />
+                ) : isCompleted ? (
+                  <HugeiconsIcon
+                    icon={Tick02FreeIcons}
+                    className="size-3.5 text-green-500"
+                  />
+                ) : (
+                  <div className="size-2 rounded-full bg-muted-foreground/30" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p
+                  className={`text-sm font-medium truncate ${
+                    isActive
+                      ? "text-foreground"
+                      : isCompleted
+                        ? "text-muted-foreground"
+                        : "text-muted-foreground/50"
+                  }`}
+                >
+                  {step.label}
+                </p>
+                {isActive && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {step.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function GenerationInfo({
@@ -377,12 +470,12 @@ function GenerationInfo({
   parentProjectName,
   parentGenerationId,
 }: {
-  generatedAt?: number
-  guidance?: string
-  parentProjectName?: string
-  parentGenerationId?: string
+  generatedAt?: number;
+  guidance?: string;
+  parentProjectName?: string;
+  parentGenerationId?: string;
 }) {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   return (
     <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground pb-2">
@@ -404,7 +497,7 @@ function GenerationInfo({
               className="h-7 px-2 text-xs"
               onClick={() =>
                 navigate({
-                  to: '/projectIdeas',
+                  to: "/projectIdeas",
                   search: { generationId: parentGenerationId },
                 })
               }
@@ -433,14 +526,14 @@ function GenerationInfo({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 interface Project {
-  id: string
-  name: string
-  description: string
-  tags: Array<string>
+  id: string;
+  name: string;
+  description: string;
+  tags: Array<string>;
 }
 
 function ProjectCard({
@@ -449,10 +542,10 @@ function ProjectCard({
   onBranch,
   onClick,
 }: {
-  project: Project
-  index: number
-  onBranch: (project: Project) => void
-  onClick: (project: Project) => void
+  project: Project;
+  index: number;
+  onBranch: (project: Project) => void;
+  onClick: (project: Project) => void;
 }) {
   return (
     <Card
@@ -483,8 +576,8 @@ function ProjectCard({
           size="sm"
           className="flex-1 gap-2 hover:bg-primary/10 hover:text-primary hover:border-primary/30"
           onClick={(e) => {
-            e.stopPropagation()
-            onBranch(project)
+            e.stopPropagation();
+            onBranch(project);
           }}
         >
           <HugeiconsIcon icon={GitBranchIcon} className="size-3.5" />
@@ -501,5 +594,5 @@ function ProjectCard({
         </Button>
       </CardFooter>
     </Card>
-  )
+  );
 }

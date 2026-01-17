@@ -1,25 +1,25 @@
-import * as React from 'react'
-import { Combobox as ComboboxPrimitive } from '@base-ui/react'
+import * as React from "react";
+import { Combobox as ComboboxPrimitive } from "@base-ui/react";
 
-import { HugeiconsIcon } from '@hugeicons/react'
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowDown01Icon,
   Cancel01Icon,
   Tick02Icon,
-} from '@hugeicons/core-free-icons'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+} from "@hugeicons/core-free-icons";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from '@/components/ui/input-group'
+} from "@/components/ui/input-group";
 
-const Combobox = ComboboxPrimitive.Root
+const Combobox = ComboboxPrimitive.Root;
 
 function ComboboxValue({ ...props }: ComboboxPrimitive.Value.Props) {
-  return <ComboboxPrimitive.Value data-slot="combobox-value" {...props} />
+  return <ComboboxPrimitive.Value data-slot="combobox-value" {...props} />;
 }
 
 function ComboboxTrigger({
@@ -40,7 +40,7 @@ function ComboboxTrigger({
         className="text-muted-foreground size-3.5 pointer-events-none"
       />
     </ComboboxPrimitive.Trigger>
-  )
+  );
 }
 
 function ComboboxClear({ className, ...props }: ComboboxPrimitive.Clear.Props) {
@@ -57,7 +57,7 @@ function ComboboxClear({ className, ...props }: ComboboxPrimitive.Clear.Props) {
         className="pointer-events-none"
       />
     </ComboboxPrimitive.Clear>
-  )
+  );
 }
 
 function ComboboxInput({
@@ -68,11 +68,11 @@ function ComboboxInput({
   showClear = false,
   ...props
 }: ComboboxPrimitive.Input.Props & {
-  showTrigger?: boolean
-  showClear?: boolean
+  showTrigger?: boolean;
+  showClear?: boolean;
 }) {
   return (
-    <InputGroup className={cn('w-auto', className)}>
+    <InputGroup className={cn("w-auto", className)}>
       <ComboboxPrimitive.Input
         render={<InputGroupInput disabled={disabled} />}
         {...props}
@@ -92,21 +92,21 @@ function ComboboxInput({
       </InputGroupAddon>
       {children}
     </InputGroup>
-  )
+  );
 }
 
 function ComboboxContent({
   className,
-  side = 'bottom',
+  side = "bottom",
   sideOffset = 6,
-  align = 'start',
+  align = "start",
   alignOffset = 0,
   anchor,
   ...props
 }: ComboboxPrimitive.Popup.Props &
   Pick<
     ComboboxPrimitive.Positioner.Props,
-    'side' | 'align' | 'sideOffset' | 'alignOffset' | 'anchor'
+    "side" | "align" | "sideOffset" | "alignOffset" | "anchor"
   >) {
   return (
     <ComboboxPrimitive.Portal>
@@ -122,14 +122,14 @@ function ComboboxContent({
           data-slot="combobox-content"
           data-chips={!!anchor}
           className={cn(
-            'bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 *:data-[slot=input-group]:bg-input/20 dark:bg-popover max-h-72 min-w-32 overflow-hidden rounded-lg shadow-md ring-1 duration-100 *:data-[slot=input-group]:m-1 *:data-[slot=input-group]:mb-0 *:data-[slot=input-group]:h-7 *:data-[slot=input-group]:border-none *:data-[slot=input-group]:shadow-none group/combobox-content relative max-h-(--available-height) w-(--anchor-width) max-w-(--available-width) min-w-[calc(var(--anchor-width)+--spacing(7))] origin-(--transform-origin) data-[chips=true]:min-w-(--anchor-width)',
+            "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 ring-foreground/10 *:data-[slot=input-group]:bg-input/20 dark:bg-popover max-h-72 min-w-32 overflow-hidden rounded-lg shadow-md ring-1 duration-100 *:data-[slot=input-group]:m-1 *:data-[slot=input-group]:mb-0 *:data-[slot=input-group]:h-7 *:data-[slot=input-group]:border-none *:data-[slot=input-group]:shadow-none group/combobox-content relative max-h-(--available-height) w-(--anchor-width) max-w-(--available-width) min-w-[calc(var(--anchor-width)+--spacing(7))] origin-(--transform-origin) data-[chips=true]:min-w-(--anchor-width)",
             className,
           )}
           {...props}
         />
       </ComboboxPrimitive.Positioner>
     </ComboboxPrimitive.Portal>
-  )
+  );
 }
 
 function ComboboxList({ className, ...props }: ComboboxPrimitive.List.Props) {
@@ -137,12 +137,12 @@ function ComboboxList({ className, ...props }: ComboboxPrimitive.List.Props) {
     <ComboboxPrimitive.List
       data-slot="combobox-list"
       className={cn(
-        'no-scrollbar max-h-[min(calc(--spacing(72)---spacing(9)),calc(var(--available-height)---spacing(9)))] scroll-py-1 overflow-y-auto p-1 data-empty:p-0 overflow-y-auto overscroll-contain',
+        "no-scrollbar max-h-[min(calc(--spacing(72)---spacing(9)),calc(var(--available-height)---spacing(9)))] scroll-py-1 overflow-y-auto p-1 data-empty:p-0 overflow-y-auto overscroll-contain",
         className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function ComboboxItem({
@@ -172,7 +172,7 @@ function ComboboxItem({
         />
       </ComboboxPrimitive.ItemIndicator>
     </ComboboxPrimitive.Item>
-  )
+  );
 }
 
 function ComboboxGroup({ className, ...props }: ComboboxPrimitive.Group.Props) {
@@ -182,7 +182,7 @@ function ComboboxGroup({ className, ...props }: ComboboxPrimitive.Group.Props) {
       className={cn(className)}
       {...props}
     />
-  )
+  );
 }
 
 function ComboboxLabel({
@@ -192,16 +192,16 @@ function ComboboxLabel({
   return (
     <ComboboxPrimitive.GroupLabel
       data-slot="combobox-label"
-      className={cn('text-muted-foreground px-2 py-1.5 text-xs', className)}
+      className={cn("text-muted-foreground px-2 py-1.5 text-xs", className)}
       {...props}
     />
-  )
+  );
 }
 
 function ComboboxCollection({ ...props }: ComboboxPrimitive.Collection.Props) {
   return (
     <ComboboxPrimitive.Collection data-slot="combobox-collection" {...props} />
-  )
+  );
 }
 
 function ComboboxEmpty({ className, ...props }: ComboboxPrimitive.Empty.Props) {
@@ -209,12 +209,12 @@ function ComboboxEmpty({ className, ...props }: ComboboxPrimitive.Empty.Props) {
     <ComboboxPrimitive.Empty
       data-slot="combobox-empty"
       className={cn(
-        'text-muted-foreground hidden w-full justify-center py-2 text-center text-xs/relaxed group-data-empty/combobox-content:flex',
+        "text-muted-foreground hidden w-full justify-center py-2 text-center text-xs/relaxed group-data-empty/combobox-content:flex",
         className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function ComboboxSeparator({
@@ -224,10 +224,10 @@ function ComboboxSeparator({
   return (
     <ComboboxPrimitive.Separator
       data-slot="combobox-separator"
-      className={cn('bg-border/50 -mx-1 my-1 h-px', className)}
+      className={cn("bg-border/50 -mx-1 my-1 h-px", className)}
       {...props}
     />
-  )
+  );
 }
 
 function ComboboxChips({
@@ -239,12 +239,12 @@ function ComboboxChips({
     <ComboboxPrimitive.Chips
       data-slot="combobox-chips"
       className={cn(
-        'bg-input/20 dark:bg-input/30 border-input focus-within:border-ring focus-within:ring-ring/30 has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40 has-aria-invalid:border-destructive dark:has-aria-invalid:border-destructive/50 flex min-h-7 flex-wrap items-center gap-1 rounded-md border bg-clip-padding px-2 py-0.5 text-xs/relaxed transition-colors focus-within:ring-[2px] has-aria-invalid:ring-[2px] has-data-[slot=combobox-chip]:px-1',
+        "bg-input/20 dark:bg-input/30 border-input focus-within:border-ring focus-within:ring-ring/30 has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40 has-aria-invalid:border-destructive dark:has-aria-invalid:border-destructive/50 flex min-h-7 flex-wrap items-center gap-1 rounded-md border bg-clip-padding px-2 py-0.5 text-xs/relaxed transition-colors focus-within:ring-[2px] has-aria-invalid:ring-[2px] has-data-[slot=combobox-chip]:px-1",
         className,
       )}
       {...props}
     />
-  )
+  );
 }
 
 function ComboboxChip({
@@ -253,13 +253,13 @@ function ComboboxChip({
   showRemove = true,
   ...props
 }: ComboboxPrimitive.Chip.Props & {
-  showRemove?: boolean
+  showRemove?: boolean;
 }) {
   return (
     <ComboboxPrimitive.Chip
       data-slot="combobox-chip"
       className={cn(
-        'bg-muted-foreground/10 text-foreground flex h-[calc(--spacing(4.75))] w-fit items-center justify-center gap-1 rounded-[calc(var(--radius-sm)-2px)] px-1.5 text-xs/relaxed font-medium whitespace-nowrap has-data-[slot=combobox-chip-remove]:pr-0 has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-disabled:opacity-50',
+        "bg-muted-foreground/10 text-foreground flex h-[calc(--spacing(4.75))] w-fit items-center justify-center gap-1 rounded-[calc(var(--radius-sm)-2px)] px-1.5 text-xs/relaxed font-medium whitespace-nowrap has-data-[slot=combobox-chip-remove]:pr-0 has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-disabled:opacity-50",
         className,
       )}
       {...props}
@@ -279,7 +279,7 @@ function ComboboxChip({
         </ComboboxPrimitive.ChipRemove>
       )}
     </ComboboxPrimitive.Chip>
-  )
+  );
 }
 
 function ComboboxChipsInput({
@@ -289,14 +289,14 @@ function ComboboxChipsInput({
   return (
     <ComboboxPrimitive.Input
       data-slot="combobox-chip-input"
-      className={cn('min-w-16 flex-1 outline-none', className)}
+      className={cn("min-w-16 flex-1 outline-none", className)}
       {...props}
     />
-  )
+  );
 }
 
 function useComboboxAnchor() {
-  return React.useRef<HTMLDivElement | null>(null)
+  return React.useRef<HTMLDivElement | null>(null);
 }
 
 export {
@@ -316,4 +316,4 @@ export {
   ComboboxTrigger,
   ComboboxValue,
   useComboboxAnchor,
-}
+};

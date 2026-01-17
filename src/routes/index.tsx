@@ -3,7 +3,7 @@ import {
   SignedIn,
   SignedOut,
   useAuth,
-} from '@clerk/tanstack-react-start'
+} from "@clerk/tanstack-react-start";
 import {
   CodeFreeIcons,
   GitBranchFreeIcons,
@@ -11,16 +11,16 @@ import {
   Loading03FreeIcons,
   Rocket01FreeIcons,
   SparklesFreeIcons,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { createFileRoute } from '@tanstack/react-router'
-import { SidebarTrigger } from '@/components/ui/sidebar'
-import { ExpandableGenerateButton } from '@/components/expandable-generate-button'
+} from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { createFileRoute } from "@tanstack/react-router";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { ExpandableGenerateButton } from "@/components/expandable-generate-button";
 
-export const Route = createFileRoute('/')({ component: App })
+export const Route = createFileRoute("/")({ component: App });
 
 function App() {
-  const { isLoaded } = useAuth()
+  const { isLoaded } = useAuth();
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-background">
@@ -72,7 +72,7 @@ function App() {
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-black tracking-tight mb-6">
             <span className="text-foreground">Git a</span>
             <span className="text-transparent bg-clip-text bg-linear-to-r from-primary via-chart-2 to-chart-1">
-              {' '}
+              {" "}
               Project
             </span>
           </h1>
@@ -129,5 +129,5 @@ function App() {
         </div>
       </div>
     </div>
-  )
+  );
 }

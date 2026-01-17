@@ -1,98 +1,185 @@
-import { v } from 'convex/values'
-import { internalMutation, mutation, query } from './_generated/server'
-import { generationStatusValidator, projectValidator } from './schema'
+import { v } from "convex/values";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
+import {
+  generationStatusValidator,
+  generationStepValidator,
+  projectValidator,
+} from "./schema";
+import { api, internal } from "./_generated/api";
+import { workflow } from "./index";
 
-export { projectValidator }
+export { projectValidator };
 
 export const createGeneration = mutation({
   args: {
+    githubUsername: v.string(),
     guidance: v.optional(v.string()),
-    parentGenerationId: v.optional(v.id('generations')),
+    parentGenerationId: v.optional(v.id("generations")),
     parentProjectId: v.optional(v.string()),
     parentProjectName: v.optional(v.string()),
+    parentProjectDescription: v.optional(v.string()),
   },
-  returns: v.id('generations'),
+  returns: v.id("generations"),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error('You must be signed in to create a generation')
+      throw new Error("You must be signed in to create a generation");
     }
 
-    const generationId = await ctx.db.insert('generations', {
+    const generationId = await ctx.db.insert("generations", {
       userId: identity.subject,
-      status: 'generating',
+      status: "generating",
       projects: [],
       guidance: args.guidance || undefined,
       parentGenerationId: args.parentGenerationId,
       parentProjectId: args.parentProjectId,
       parentProjectName: args.parentProjectName,
-    })
+    });
 
-    return generationId
+    await workflow.start(
+      ctx,
+      internal.workflows.generateProjectIdeasWorkflow,
+      {
+        generationId,
+        githubUsername: args.githubUsername,
+        guidance: args.guidance,
+        parentProjectName: args.parentProjectName,
+        parentProjectDescription: args.parentProjectDescription,
+      },
+      {
+        onComplete: internal.workflows.handleWorkflowComplete,
+        context: { generationId },
+      },
+    );
+
+    return generationId;
   },
-})
+});
 
-export const startGeneration = internalMutation({
+export const retryGeneration = mutation({
   args: {
-    userId: v.string(),
-    guidance: v.optional(v.string()),
-    parentGenerationId: v.optional(v.id('generations')),
-    parentProjectId: v.optional(v.string()),
-    parentProjectName: v.optional(v.string()),
+    generationId: v.id("generations"),
+    githubUsername: v.string(),
   },
-  returns: v.id('generations'),
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const generationId = await ctx.db.insert('generations', {
-      userId: args.userId,
-      status: 'generating',
-      projects: [],
-      guidance: args.guidance || undefined,
-      parentGenerationId: args.parentGenerationId,
-      parentProjectId: args.parentProjectId,
-      parentProjectName: args.parentProjectName,
-    })
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to retry a generation");
+    }
 
-    return generationId
+    const generation = await ctx.db.get(args.generationId);
+    if (!generation || generation.userId !== identity.subject) {
+      throw new Error("Generation not found");
+    }
+
+    if (generation.status !== "error") {
+      throw new Error("Can only retry failed generations");
+    }
+
+    await ctx.db.patch(args.generationId, {
+      status: "generating",
+      error: undefined,
+    });
+
+    await workflow.start(
+      ctx,
+      internal.workflows.generateProjectIdeasWorkflow,
+      {
+        generationId: args.generationId,
+        githubUsername: args.githubUsername,
+        guidance: generation.guidance,
+        parentProjectName: generation.parentProjectName,
+        parentProjectDescription: undefined,
+      },
+      {
+        onComplete: internal.workflows.handleWorkflowComplete,
+        context: { generationId: args.generationId },
+      },
+    );
+
+    return null;
   },
-})
+});
 
 export const storeProjectIdeas = internalMutation({
   args: {
-    generationId: v.id('generations'),
-    displayName: v.string(),
+    generationId: v.id("generations"),
     projects: v.array(projectValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const now = Date.now()
+    const now = Date.now();
 
     await ctx.db.patch(args.generationId, {
       projects: args.projects,
-      status: 'completed',
+      status: "completed",
       error: undefined,
       generatedAt: now,
-      displayName: args.displayName,
-    })
+    });
 
-    return null
+    return null;
   },
-})
+});
+
+export const storeDisplayName = internalMutation({
+  args: {
+    generationId: v.id("generations"),
+    displayName: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.generationId, {
+      displayName: args.displayName,
+      currentStep: undefined,
+    });
+
+    return null;
+  },
+});
+
+export const updateGenerationStep = internalMutation({
+  args: {
+    generationId: v.id("generations"),
+    step: generationStepValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.generationId, {
+      currentStep: args.step,
+    });
+
+    return null;
+  },
+});
+
+export const getGenerationByIdInternal = internalQuery({
+  args: { id: v.id("generations") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.id);
+  },
+});
 
 export const setGenerationError = internalMutation({
   args: {
-    generationId: v.id('generations'),
+    generationId: v.id("generations"),
     error: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.patch(args.generationId, {
-      status: 'error',
+      status: "error",
       error: args.error,
-    })
+    });
 
-    return null
+    return null;
   },
-})
+});
 
 // Get the latest generation for the current user
 export const getLatestGeneration = query({
@@ -100,64 +187,51 @@ export const getLatestGeneration = query({
   returns: v.union(
     v.null(),
     v.object({
-      _id: v.id('generations'),
+      _id: v.id("generations"),
       _creationTime: v.number(),
       userId: v.string(),
       status: generationStatusValidator,
+      currentStep: v.optional(generationStepValidator),
       error: v.optional(v.string()),
       generatedAt: v.optional(v.number()),
       guidance: v.optional(v.string()),
       displayName: v.optional(v.string()),
       projects: v.array(projectValidator),
-      parentGenerationId: v.optional(v.id('generations')),
+      parentGenerationId: v.optional(v.id("generations")),
       parentProjectId: v.optional(v.string()),
       parentProjectName: v.optional(v.string()),
     }),
   ),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return null
+      return null;
     }
 
     const generation = await ctx.db
-      .query('generations')
-      .withIndex('by_userId', (q) => q.eq('userId', identity.subject))
-      .order('desc')
-      .first()
+      .query("generations")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .first();
 
-    return generation
+    return generation;
   },
-})
+});
 
 // Get generation history for sidebar
 export const getGenerationHistory = query({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id('generations'),
-      _creationTime: v.number(),
-      status: generationStatusValidator,
-      generatedAt: v.optional(v.number()),
-      guidance: v.optional(v.string()),
-      displayName: v.optional(v.string()),
-      projectCount: v.number(),
-      parentGenerationId: v.optional(v.id('generations')),
-      parentProjectId: v.optional(v.string()),
-      parentProjectName: v.optional(v.string()),
-    }),
-  ),
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return []
+      return [];
     }
 
     const generations = await ctx.db
-      .query('generations')
-      .withIndex('by_userId', (q) => q.eq('userId', identity.subject))
-      .order('desc')
-      .take(50)
+      .query("generations")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .order("desc")
+      .take(50);
 
     return generations.map((gen) => ({
       _id: gen._id,
@@ -170,73 +244,44 @@ export const getGenerationHistory = query({
       parentGenerationId: gen.parentGenerationId,
       parentProjectId: gen.parentProjectId,
       parentProjectName: gen.parentProjectName,
-    }))
+    }));
   },
-})
+});
 
 // Get a specific generation by ID
 export const getGenerationById = query({
-  args: { id: v.id('generations') },
-  returns: v.union(
-    v.null(),
-    v.object({
-      _id: v.id('generations'),
-      _creationTime: v.number(),
-      userId: v.string(),
-      status: generationStatusValidator,
-      error: v.optional(v.string()),
-      generatedAt: v.optional(v.number()),
-      guidance: v.optional(v.string()),
-      displayName: v.optional(v.string()),
-      projects: v.array(projectValidator),
-      parentGenerationId: v.optional(v.id('generations')),
-      parentProjectId: v.optional(v.string()),
-      parentProjectName: v.optional(v.string()),
-    }),
-  ),
+  args: { id: v.id("generations") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return null
+      return null;
     }
 
-    const generation = await ctx.db.get(args.id)
+    const generation = await ctx.db.get(args.id);
     if (!generation || generation.userId !== identity.subject) {
-      return null
+      return null;
     }
 
-    return generation
+    return generation;
   },
-})
+});
 
 // Get branches (children) for a specific generation
 export const getGenerationBranches = query({
-  args: { parentId: v.id('generations') },
-  returns: v.array(
-    v.object({
-      _id: v.id('generations'),
-      _creationTime: v.number(),
-      status: generationStatusValidator,
-      generatedAt: v.optional(v.number()),
-      guidance: v.optional(v.string()),
-      projectCount: v.number(),
-      parentProjectId: v.optional(v.string()),
-      parentProjectName: v.optional(v.string()),
-    }),
-  ),
+  args: { parentId: v.id("generations") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
+    const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      return []
+      return [];
     }
 
     const branches = await ctx.db
-      .query('generations')
-      .withIndex('by_parentGenerationId', (q) =>
-        q.eq('parentGenerationId', args.parentId),
+      .query("generations")
+      .withIndex("by_parentGenerationId", (q) =>
+        q.eq("parentGenerationId", args.parentId),
       )
-      .order('desc')
-      .collect()
+      .order("desc")
+      .collect();
 
     // Filter to only user's own branches
     return branches
@@ -250,53 +295,65 @@ export const getGenerationBranches = query({
         projectCount: gen.projects.length,
         parentProjectId: gen.parentProjectId,
         parentProjectName: gen.parentProjectName,
-      }))
+      }));
   },
-})
+});
 
 export const updateGenerationDisplayName = mutation({
   args: {
-    generationId: v.id('generations'),
+    generationId: v.id("generations"),
     displayName: v.string(),
   },
-  returns: v.null(),
   handler: async (ctx, args) => {
-    const user = await ctx.auth.getUserIdentity()
+    const user = await ctx.auth.getUserIdentity();
 
     if (!user) {
-      throw new Error('User not found')
+      throw new Error("User not found");
     }
 
-    const generation = await ctx.db.get(args.generationId)
+    const generation = await ctx.db.get(args.generationId);
 
     if (!generation || generation.userId !== user.subject) {
-      throw new Error('Generation not found')
+      throw new Error("Generation not found");
     }
 
-    await ctx.db.patch(args.generationId, { displayName: args.displayName })
-    return null
+    await ctx.db.patch(args.generationId, { displayName: args.displayName });
+    return null;
   },
-})
+});
 
 export const deleteGeneration = mutation({
   args: {
-    generationId: v.id('generations'),
+    generationId: v.id("generations"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const user = await ctx.auth.getUserIdentity()
+    const user = await ctx.auth.getUserIdentity();
 
     if (!user) {
-      throw new Error('User not found')
+      throw new Error("User not found");
     }
 
-    const generation = await ctx.db.get(args.generationId)
+    const generation = await ctx.db.get(args.generationId);
 
     if (!generation || generation.userId !== user.subject) {
-      throw new Error('Generation not found')
+      throw new Error("Generation not found");
     }
 
-    await ctx.db.delete(args.generationId)
-    return null
+    const branches = await ctx.db
+      .query("generations")
+      .withIndex("by_parentGenerationId", (q) =>
+        q.eq("parentGenerationId", args.generationId),
+      )
+      .collect();
+
+    for (const branch of branches) {
+      await ctx.runMutation(api.projects.deleteGeneration, {
+        generationId: branch._id,
+      });
+    }
+
+    await ctx.db.delete(args.generationId);
+    return null;
   },
-})
+});

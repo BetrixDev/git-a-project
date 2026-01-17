@@ -1,47 +1,47 @@
-import { useEffect, useRef, useState } from 'react'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { useEffect, useRef, useState } from "react";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowRight01FreeIcons,
   Cancel01FreeIcons,
   Loading03FreeIcons,
   SparklesFreeIcons,
-} from '@hugeicons/core-free-icons'
-import { useGenerateProjects } from '@/hooks/use-generate-projects'
+} from "@hugeicons/core-free-icons";
+import { useGenerateProjects } from "@/hooks/use-generate-projects";
 
 export function ExpandableGenerateButton() {
-  const { generateProjects, isGenerating } = useGenerateProjects()
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [guidance, setGuidance] = useState('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const { generateProjects, isGenerating } = useGenerateProjects();
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [guidance, setGuidance] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isExpanded && inputRef.current) {
       const timer = setTimeout(() => {
-        inputRef.current?.focus()
-      }, 150)
-      return () => clearTimeout(timer)
+        inputRef.current?.focus();
+      }, 150);
+      return () => clearTimeout(timer);
     }
-  }, [isExpanded])
+  }, [isExpanded]);
 
   const handleSubmit = () => {
-    generateProjects({ guidance: guidance.trim() || undefined })
-    setGuidance('')
-    setIsExpanded(false)
-  }
+    generateProjects({ guidance: guidance.trim() || undefined });
+    setGuidance("");
+    setIsExpanded(false);
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSubmit()
-    } else if (e.key === 'Escape') {
-      setIsExpanded(false)
-      setGuidance('')
+    if (e.key === "Enter") {
+      handleSubmit();
+    } else if (e.key === "Escape") {
+      setIsExpanded(false);
+      setGuidance("");
     }
-  }
+  };
 
   const handleCollapse = () => {
-    setIsExpanded(false)
-    setGuidance('')
-  }
+    setIsExpanded(false);
+    setGuidance("");
+  };
 
   if (isGenerating) {
     return (
@@ -55,15 +55,15 @@ export function ExpandableGenerateButton() {
           <span>Generating...</span>
         </span>
       </button>
-    )
+    );
   }
 
   return (
     <div
-      className={`expandable-generate-container ${isExpanded ? 'expanded' : ''}`}
+      className={`expandable-generate-container ${isExpanded ? "expanded" : ""}`}
     >
       <button
-        className={`landing-btn-generate group expandable-generate-btn ${isExpanded ? 'hidden-btn' : ''}`}
+        className={`landing-btn-generate group expandable-generate-btn ${isExpanded ? "hidden-btn" : ""}`}
         onClick={() => setIsExpanded(true)}
         aria-label="Generate Projects"
       >
@@ -74,7 +74,7 @@ export function ExpandableGenerateButton() {
         </span>
       </button>
       <div
-        className={`expandable-generate-input-wrapper ${isExpanded ? 'visible' : ''}`}
+        className={`expandable-generate-input-wrapper ${isExpanded ? "visible" : ""}`}
       >
         <div className="expandable-generate-inner">
           <button
@@ -111,5 +111,5 @@ export function ExpandableGenerateButton() {
         </p>
       </div>
     </div>
-  )
+  );
 }

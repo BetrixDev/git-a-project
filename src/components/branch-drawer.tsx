@@ -1,16 +1,16 @@
-import { useState } from 'react'
-import { useQuery } from 'convex/react'
-import { useNavigate } from '@tanstack/react-router'
-import { HugeiconsIcon } from '@hugeicons/react'
+import { useState } from "react";
+import { useQuery } from "convex/react";
+import { useNavigate } from "@tanstack/react-router";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
   ArrowRight01FreeIcons,
   GitBranchIcon,
   Loading03FreeIcons,
   SparklesFreeIcons,
   Tick01Icon,
-} from '@hugeicons/core-free-icons'
-import { api } from '../../convex/_generated/api'
-import type { Id } from '../../convex/_generated/dataModel'
+} from "@hugeicons/core-free-icons";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import {
   Sheet,
   SheetContent,
@@ -18,24 +18,24 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import { useGenerateProjects } from '@/hooks/use-generate-projects'
+} from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { useGenerateProjects } from "@/hooks/use-generate-projects";
 
 interface Project {
-  id: string
-  name: string
-  description: string
-  tags: Array<string>
+  id: string;
+  name: string;
+  description: string;
+  tags: Array<string>;
 }
 
 interface BranchDrawerProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  project: Project | null
-  generationId: Id<'generations'> | null
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  project: Project | null;
+  generationId: Id<"generations"> | null;
 }
 
 export function BranchDrawer({
@@ -44,23 +44,23 @@ export function BranchDrawer({
   project,
   generationId,
 }: BranchDrawerProps) {
-  const navigate = useNavigate()
-  const { generateProjects, isGenerating, canGenerate } = useGenerateProjects()
+  const navigate = useNavigate();
+  const { generateProjects, isGenerating, canGenerate } = useGenerateProjects();
 
-  const [guidance, setGuidance] = useState('')
+  const [guidance, setGuidance] = useState("");
 
   // Get existing branches for this project
   const branches = useQuery(
     api.projects.getGenerationBranches,
-    generationId ? { parentId: generationId } : 'skip',
-  )
+    generationId ? { parentId: generationId } : "skip",
+  );
 
   const projectBranches = branches?.filter(
     (b) => b.parentProjectId === project?.id,
-  )
+  );
 
   const handleBranch = async () => {
-    if (!canGenerate || !project || !generationId || isGenerating) return
+    if (!canGenerate || !project || !generationId || isGenerating) return;
 
     const result = await generateProjects({
       guidance: guidance.trim() || undefined,
@@ -68,15 +68,15 @@ export function BranchDrawer({
       parentProjectId: project.id,
       parentProjectName: project.name,
       parentProjectDescription: project.description,
-    })
+    });
 
     if (result) {
-      setGuidance('')
-      onOpenChange(false)
+      setGuidance("");
+      onOpenChange(false);
     }
-  }
+  };
 
-  if (!project) return null
+  if (!project) return null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -159,11 +159,11 @@ export function BranchDrawer({
             </label>
             <div className="grid gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
               {[
-                'Different implementations of the same concept',
-                'Simpler or more advanced versions',
-                'Complementary projects that work together',
-                'Alternative tech stacks or platforms',
-                'Related ideas in the same problem space',
+                "Different implementations of the same concept",
+                "Simpler or more advanced versions",
+                "Complementary projects that work together",
+                "Alternative tech stacks or platforms",
+                "Related ideas in the same problem space",
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-2.5 text-sm">
                   <div className="size-4 rounded-full bg-primary/15 flex items-center justify-center mt-0.5 shrink-0">
@@ -195,11 +195,11 @@ export function BranchDrawer({
                   <button
                     key={branch._id}
                     onClick={() => {
-                      onOpenChange(false)
+                      onOpenChange(false);
                       navigate({
-                        to: '/projectIdeas',
+                        to: "/projectIdeas",
                         search: { generationId: branch._id },
-                      })
+                      });
                     }}
                     className="w-full p-3 rounded-lg border border-border/30 bg-card/30 hover:bg-card/60 hover:border-primary/30 transition-all text-left group"
                   >
@@ -232,7 +232,7 @@ export function BranchDrawer({
           <Button
             onClick={handleBranch}
             disabled={isGenerating || !canGenerate}
-            className={`w-full gap-2 h-12 text-sm font-semibold ${isGenerating ? 'branch-generating' : ''}`}
+            className={`w-full gap-2 h-12 text-sm font-semibold ${isGenerating ? "branch-generating" : ""}`}
             size="lg"
           >
             {isGenerating ? (
@@ -253,5 +253,5 @@ export function BranchDrawer({
         </SheetFooter>
       </SheetContent>
     </Sheet>
-  )
+  );
 }

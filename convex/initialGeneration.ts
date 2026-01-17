@@ -1,85 +1,99 @@
-'use node'
+"use node";
 
-import { v } from 'convex/values'
-import { Output, ToolLoopAgent, generateText, tool } from 'ai'
-import { z } from 'zod'
-import { action } from './_generated/server'
-import { internal } from './_generated/api'
+import { v } from "convex/values";
+import { Output, generateText } from "ai";
+import { z } from "zod";
+import { internalAction } from "./_generated/server";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import dedent from "dedent";
 
-interface GitHubRepo {
-  name: string
-  description: string | null
-  language: string | null
-  topics: Array<string>
-  stargazers_count: number
-  fork: boolean
-}
+const openrouter = createOpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
+});
 
-interface RepoSummary {
-  name: string
-  description: string | null
-  language: string | null
-  topics: Array<string>
-  stars: number
-  isFork: boolean
-}
+type GitHubRepo = {
+  id: string;
+  name: string;
+  description: string | null;
+  language: string | null;
+  topics: string[];
+  stars: number;
+  fork: boolean;
+  is_template: boolean;
+  archived: boolean;
+};
 
-interface FetchReposResult {
-  error: string | null
-  repos: Array<RepoSummary>
-  pagination: {
-    currentPage: number
-    perPage: number
-    hasNextPage: boolean
-  }
-}
+type RepoData = {
+  name: string;
+  description: string | null;
+  language: string | null;
+  topics: string[];
+};
 
-async function fetchGitHubRepos(
-  githubUsername: string,
-  page: number,
-  perPage: number,
-  includeForks: boolean,
-): Promise<FetchReposResult> {
+async function fetchGitHubRepos(githubUsername: string) {
   const response = await fetch(
-    `https://api.github.com/users/${githubUsername}/repos?per_page=${perPage}&page=${page}&sort=updated`,
+    `https://api.github.com/users/${githubUsername}/repos?per_page=5&sort=updated`,
     {
       headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'git-project-app',
+        Accept: "application/json; charset=utf-8",
+        "User-Agent":
+          "git-a-project <https://github.com/betrixdev/git-a-project>",
       },
     },
-  )
+  );
 
   if (!response.ok) {
-    return {
-      error: `Failed to fetch repos: ${response.statusText}`,
-      repos: [],
-      pagination: { currentPage: page, perPage, hasNextPage: false },
-    }
+    throw new Error(
+      `Failed to fetch repos for user ${githubUsername}: ${response.statusText}`,
+    );
   }
 
-  const repos: Array<GitHubRepo> = await response.json()
-  const filteredRepos = includeForks ? repos : repos.filter((r) => !r.fork)
-
-  const linkHeader = response.headers.get('Link')
-  const hasNextPage = linkHeader?.includes('rel="next"') ?? false
+  const repos: GitHubRepo[] = await response.json();
+  const filteredRepos = repos.filter(
+    (r) => !r.fork && !r.is_template && !r.archived,
+  );
 
   return {
-    error: null,
     repos: filteredRepos.map((repo) => ({
       name: repo.name,
       description: repo.description,
       language: repo.language,
       topics: repo.topics,
-      stars: repo.stargazers_count,
-      isFork: repo.fork,
     })),
-    pagination: {
-      currentPage: page,
-      perPage,
-      hasNextPage,
+  };
+}
+
+async function fetchGithubStarredProjects(githubUsername: string) {
+  const response = await fetch(
+    `https://api.github.com/users/${githubUsername}/starred?per_page=25`,
+    {
+      headers: {
+        Accept: "application/json; charset=utf-8",
+        "User-Agent":
+          "git-a-project <https://github.com/betrixdev/git-a-project>",
+      },
     },
+  );
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to fetch starred projects for user ${githubUsername}: ${response.statusText}`,
+    );
   }
+
+  const starredProjects: GitHubRepo[] = await response.json();
+  const filteredStarredProjects = starredProjects.filter(
+    (r) => !r.fork && !r.is_template && !r.archived,
+  );
+
+  return {
+    starredProjects: filteredStarredProjects.map((project) => ({
+      name: project.name,
+      description: project.description,
+      language: project.language,
+      topics: project.topics,
+    })),
+  };
 }
 
 const projectIdeasSchema = z.object({
@@ -87,154 +101,159 @@ const projectIdeasSchema = z.object({
     z.object({
       id: z
         .string()
-        .describe('A unique kebab-case identifier for this project'),
-      name: z.string().describe('A catchy, memorable project name'),
+        .describe("A unique kebab-case identifier for this project"),
+      name: z.string().describe("A catchy, memorable project name"),
       description: z
         .string()
         .describe(
-          'A 2-3 sentence description explaining what the project does and why it is interesting',
+          "A 2-3 sentence description explaining what the project does and why it is interesting",
         ),
       tags: z
         .array(z.string())
-        .describe('3-5 relevant technology or domain tags'),
+        .describe("3-5 relevant technology or domain tags"),
     }),
   ),
-})
+});
 
-export const generateInitialProjectIdeas = action({
+type ProjectIdea = {
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
+};
+
+export const fetchGitHubUserRepos = internalAction({
+  args: { githubUsername: v.string() },
+  handler: async (_, args) => {
+    return await fetchGitHubRepos(args.githubUsername);
+  },
+});
+
+export const fetchGithubUserStarredProjects = internalAction({
+  args: { githubUsername: v.string() },
+  handler: async (_, args) => {
+    return await fetchGithubStarredProjects(args.githubUsername);
+  },
+});
+
+export const generateProjectIdeasFromData = internalAction({
   args: {
-    generationId: v.id('generations'),
     githubUsername: v.string(),
+    repos: v.array(
+      v.object({
+        name: v.string(),
+        description: v.union(v.string(), v.null()),
+        language: v.union(v.string(), v.null()),
+        topics: v.array(v.string()),
+      }),
+    ),
+    starredProjects: v.array(
+      v.object({
+        name: v.string(),
+        description: v.union(v.string(), v.null()),
+        language: v.union(v.string(), v.null()),
+        topics: v.array(v.string()),
+      }),
+    ),
     guidance: v.optional(v.string()),
-    // Branching support
     parentProjectName: v.optional(v.string()),
     parentProjectDescription: v.optional(v.string()),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (identity === null) {
-      throw new Error('You must be signed in to generate project ideas')
-    }
-
+  handler: async (_, args): Promise<ProjectIdea[]> => {
     const {
-      generationId,
       githubUsername,
+      repos,
+      starredProjects,
       guidance,
       parentProjectName,
       parentProjectDescription,
-    } = args
+    } = args;
 
-    try {
-      // Build context-aware instructions based on whether this is a branch
-      const isBranch = parentProjectName && parentProjectDescription
-      const branchContext = isBranch
-        ? `
+    const isBranch = parentProjectName && parentProjectDescription;
+    const branchContext = isBranch
+      ? dedent`
 
 IMPORTANT: This is a BRANCHED generation. The user has selected a specific project idea they're interested in:
 - Project Name: "${parentProjectName}"
 - Project Description: "${parentProjectDescription}"
 
-Generate 5 NEW project ideas that are variations, extensions, or related concepts based on this specific project. Ideas should:
+Generate 6 NEW project ideas that are variations, extensions, or related concepts based on this specific project. Ideas should:
 - Explore different angles or implementations of the same core concept
 - Suggest complementary projects that work well with the original idea
 - Propose simpler or more complex versions
 - Consider different tech stacks or platforms for similar functionality
 - Think creatively about related problem spaces`
-        : ''
+      : "";
 
-      const agent = new ToolLoopAgent({
-        model: 'google/gemini-2.5-flash',
-        instructions: `You are a creative project idea generator. Your task is to analyze a developer's GitHub repositories and suggest new project ideas tailored to their skills and interests.
+    const guidanceContext = guidance
+      ? `\n\nAdditional guidance from the user: ${guidance}`
+      : "";
 
-First, use the getGitHubRepos tool to explore the user's repositories. You can paginate through them to get a comprehensive view of their work. Look for patterns in:
-- Programming languages they use
-- Types of projects they build (web apps, CLI tools, libraries, etc.)
-- Domains they're interested in (AI, gaming, productivity, etc.)
-- Their skill level based on project complexity
+    const repoSummary = repos
+      .map(
+        (r: RepoData) =>
+          `${r.name}${r.language ? ` (${r.language})` : ""}${r.description ? `: ${r.description}` : ""}`,
+      )
+      .join("\n");
 
-After gathering enough information, generate 6 diverse project ideas that:
-- Build on their existing skills while introducing new challenges
-- Are unique and creative, not generic tutorial projects
-- Have practical value or would be genuinely fun to build
-- Match their apparent interests and expertise level${branchContext}`,
-        tools: {
-          getGitHubRepos: tool({
-            description:
-              'Fetches public GitHub repositories for a user. Use pagination to explore more repos if needed. Returns repos sorted by most recently updated.',
-            inputSchema: z.object({
-              page: z
-                .number()
-                .min(1)
-                .default(1)
-                .describe('Page number for pagination (starts at 1)'),
-              perPage: z
-                .number()
-                .min(1)
-                .max(30)
-                .default(10)
-                .describe('Number of repos per page (max 30)'),
-              includeForks: z
-                .boolean()
-                .default(false)
-                .describe('Whether to include forked repositories'),
-            }),
-            execute: async (params) => {
-              return fetchGitHubRepos(
-                githubUsername,
-                params.page,
-                params.perPage,
-                params.includeForks,
-              )
-            },
-          }),
-        },
-        output: Output.object({ schema: projectIdeasSchema }),
-      })
+    const starsSummary = starredProjects
+      .map(
+        (r: RepoData) =>
+          `${r.name}${r.language ? ` (${r.language})` : ""}${r.description ? `: ${r.description}` : ""}`,
+      )
+      .join("\n");
 
-      let prompt: string
-      if (isBranch) {
-        prompt = `Generate 5 NEW project ideas that branch from and are inspired by this specific project: "${parentProjectName}" - ${parentProjectDescription}`
-        if (guidance) {
-          prompt += `\n\nAdditional guidance from the user: ${guidance}`
-        }
-        prompt += `\n\nFirst, briefly check the user's GitHub repos (${githubUsername}) to understand their skill level, then generate the branched ideas.`
-      } else {
-        prompt = `Analyze the GitHub repositories for user "${githubUsername}" and generate 5 personalized project ideas based on their work. Start by fetching their repos to understand their skills and interests.`
-        if (guidance) {
-          prompt += `\n\nAdditional guidance from the user: ${guidance}`
-        }
-      }
+    const result = await generateText({
+      model: openrouter("x-ai/grok-4.1-fast"),
+      output: Output.object({ schema: projectIdeasSchema }),
+      system: dedent`
+        You are a project idea generator.
+        You will be given a list of a user's repositories and stars.
+        Your task is to generate a list of 6 project ideas based on the given information.
+        Analyze the user's repositories and stars to understand their interests and expertise.
+        The projects should be unique, innovative, and have a clear purpose.
+        ${branchContext}${guidanceContext}
+      `,
+      prompt: dedent`
+        GitHub username: ${githubUsername}
 
-      const result = await agent.generate({ prompt })
+        User's Repositories:
+        ${repoSummary || "No repositories found"}
 
-      if (!result.output) {
-        await ctx.runMutation(internal.projects.setGenerationError, {
-          generationId,
-          error: 'AI did not generate project ideas. Please try again.',
-        })
-        return null
-      }
+        User's Starred Projects:
+        ${starsSummary || "No starred projects found"}
+      `,
+    });
 
-      const displayName = await generateText({
-        model: 'google/gemini-2.0-flash-lite',
-        prompt: `Come up with a short display name that sums up the following project ideas: ${result.output.projects.map((project) => `${project.name} - ${project.description}`).join('\n')}. The display name should be no more than 5 words. Only output the display name and nothing else.`,
-      })
-
-      await ctx.runMutation(internal.projects.storeProjectIdeas, {
-        generationId,
-        projects: result.output.projects,
-        displayName: displayName.text,
-      })
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'An unexpected error occurred'
-      await ctx.runMutation(internal.projects.setGenerationError, {
-        generationId,
-        error: errorMessage,
-      })
+    if (!result.output?.projects) {
+      throw new Error("AI did not generate project ideas");
     }
 
-    return null
+    return result.output.projects;
   },
-})
+});
+
+export const generateDisplayName = internalAction({
+  args: {
+    projects: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+        description: v.string(),
+        tags: v.array(v.string()),
+      }),
+    ),
+  },
+  handler: async (_, args): Promise<string> => {
+    const projectSummary = args.projects
+      .map((p) => `${p.name} - ${p.description}`)
+      .join("\n");
+
+    const result = await generateText({
+      model: openrouter("x-ai/grok-4.1-fast"),
+      prompt: `Come up with a short display name that sums up the following project ideas:\n${projectSummary}\n\nThe display name should be no more than 5 words. Only output the display name and nothing else.`,
+    });
+
+    return result.text.trim();
+  },
+});

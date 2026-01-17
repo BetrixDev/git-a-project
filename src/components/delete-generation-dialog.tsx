@@ -1,10 +1,10 @@
-import { useMutation, useQuery } from 'convex/react'
-import { useAtom } from 'jotai'
-import { atom } from 'jotai'
-import { useNavigate, useSearch } from '@tanstack/react-router'
-import { toast } from 'sonner'
-import { api } from '../../convex/_generated/api'
-import { Id } from 'convex/_generated/dataModel'
+import { useMutation, useQuery } from "convex/react";
+import { useAtom } from "jotai";
+import { atom } from "jotai";
+import { useNavigate, useSearch } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { api } from "../../convex/_generated/api";
+import { Id } from "convex/_generated/dataModel";
 import {
   Dialog,
   DialogContent,
@@ -12,69 +12,72 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from './ui/dialog'
-import { Button } from './ui/button'
+} from "./ui/dialog";
+import { Button } from "./ui/button";
 
-export const deleteGenerationAtom = atom<Id<'generations'> | null>(null)
+export const deleteGenerationAtom = atom<Id<"generations"> | null>(null);
 
 export function DeleteGenerationDialog() {
-  const [generationId, setGenerationId] = useAtom(deleteGenerationAtom)
-  const navigate = useNavigate()
+  const [generationId, setGenerationId] = useAtom(deleteGenerationAtom);
+  const navigate = useNavigate();
 
-  let currentGenerationId: string | undefined
+  let currentGenerationId: string | undefined;
   try {
-    const search = useSearch({ strict: false })
-    currentGenerationId = search?.generationId
+    const search = useSearch({ strict: false });
+    currentGenerationId = search?.generationId;
   } catch {
     // Not on a route with search params
   }
 
   const generation = useQuery(
     api.projects.getGenerationById,
-    generationId ? { id: generationId } : 'skip',
-  )
+    generationId ? { id: generationId } : "skip",
+  );
 
-  const history = useQuery(api.projects.getGenerationHistory)
+  const history = useQuery(api.projects.getGenerationHistory);
 
-  const deleteGeneration = useMutation(api.projects.deleteGeneration)
+  const deleteGeneration = useMutation(api.projects.deleteGeneration);
 
   const handleDelete = async () => {
-    if (!generationId) return
+    if (!generationId) return;
 
-    const isViewingDeleted = currentGenerationId === generationId
+    const isViewingDeleted = currentGenerationId === generationId;
 
     try {
-      await deleteGeneration({ generationId })
-      toast.success('Generation deleted')
-      setGenerationId(null)
+      await deleteGeneration({ generationId });
+      toast.success("Generation deleted");
+      setGenerationId(null);
 
       if (isViewingDeleted) {
-        const nextGeneration = history?.find((g) => g._id !== generationId)
+        const nextGeneration = history?.find((g) => g._id !== generationId);
         if (nextGeneration) {
           navigate({
-            to: '/projectIdeas',
+            to: "/projectIdeas",
             search: { generationId: nextGeneration._id },
-          })
+          });
         } else {
-          navigate({ to: '/' })
+          navigate({ to: "/" });
         }
       }
     } catch {
-      toast.error('Failed to delete generation')
+      toast.error("Failed to delete generation");
     }
-  }
+  };
 
   const handleClose = () => {
-    setGenerationId(null)
-  }
+    setGenerationId(null);
+  };
 
   const displayText =
     generation?.displayName ||
     generation?.guidance ||
-    (generation ? `${generation.projects.length} ideas` : 'this generation')
+    (generation ? `${generation.projects.length} ideas` : "this generation");
 
   return (
-    <Dialog open={!!generationId} onOpenChange={(open) => !open && handleClose()}>
+    <Dialog
+      open={!!generationId}
+      onOpenChange={(open) => !open && handleClose()}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete Generation</DialogTitle>
@@ -93,5 +96,5 @@ export function DeleteGenerationDialog() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
