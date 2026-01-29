@@ -204,7 +204,7 @@ Generate 6 NEW project ideas that are variations, extensions, or related concept
       .join("\n");
 
     const result = await generateText({
-      model: openrouter("x-ai/grok-4.1-fast"),
+      model: openrouter("moonshotai/kimi-k2-thinking"),
       output: Output.object({ schema: projectIdeasSchema }),
       system: dedent`
         You are a project idea generator.
@@ -250,7 +250,7 @@ export const generateDisplayName = internalAction({
       .join("\n");
 
     const result = await generateText({
-      model: openrouter("x-ai/grok-4.1-fast"),
+      model: openrouter("moonshotai/kimi-k2-thinking"),
       prompt: `Come up with a short display name that sums up the following project ideas:\n${projectSummary}\n\nThe display name should be no more than 5 words. Only output the display name and nothing else.`,
     });
 
